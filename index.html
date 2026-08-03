@@ -858,7 +858,8 @@
 
   <!-- 전체 대시보드 -->
   <div id="dashboardContent">
-    <div class="prayer-header" style="text-align:right;margin-bottom:8px;">
+    <div class="prayer-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <button class="reset-btn" onclick="resetAll()">🔄 초기화</button>
       <button class="pdf-btn" onclick="exportPDF('dash')">📄 PDF</button>
     </div>
     <div class="dash-team-grid" id="dashTeamGrid"></div>
@@ -1582,6 +1583,29 @@ window.deletePerson = function(group, idx) {
 
 document.getElementById('maleInput').addEventListener('keydown', e => { if(e.key==='Enter') window.addPerson('male'); });
 document.getElementById('femaleInput').addEventListener('keydown', e => { if(e.key==='Enter') window.addPerson('female'); });
+
+// 초기화: 모든 체크 해제 + 신규 삭제 (기존 멤버는 유지)
+window.resetAll = function() {
+  if (!confirm('초기화 하시겠습니까?\n\n• 모든 참석·식수 체크가 해제됩니다.\n• 신규 전도 대상자가 모두 삭제됩니다.\n• 기존 형제·자매 명단은 유지됩니다.')) return;
+
+  [1,2,3,4].forEach(t => {
+    const d = allData[t];
+    if (!d) return;
+    ['male','female'].forEach(g => {
+      if (!d[g]) return;
+      // 신규(intro) 제거, 기존 멤버만 남기고 체크 해제
+      d[g] = d[g].filter(p => !p.intro);
+      d[g].forEach(p => {
+        p.attend = [false,false,false,false,false];
+        p.meal = [false,false,false,false,false];
+        if (p.prevAttend) p.prevAttend = [0,0,0,0,0];
+      });
+    });
+    saveTeam(t);
+  });
+
+  render();
+};
 
 // PDF 내보내기 (브라우저 인쇄 → A4)
 window.exportPDF = function(which) {
