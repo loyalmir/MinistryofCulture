@@ -769,11 +769,26 @@
   }
   .pdf-btn:hover { background: #a85f25; }
 
+  /* 초기화 버튼 */
+  .reset-btn {
+    background: #e05050;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .reset-btn:hover { background: #c83030; }
+
   /* 인쇄 (A4 한 장) */
   @media print {
     @page { size: A4; margin: 8mm; }
     body { background: white; padding: 0; }
-    .header, .pdf-btn { display: none !important; }
+    .header, .pdf-btn, .reset-btn { display: none !important; }
     .content { padding: 0; }
     #attendContent, #dashboardContent, #team5Content, #mainContent { display: none !important; }
     body.printing-attend #attendContent { display: block !important; }
