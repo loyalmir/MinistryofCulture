@@ -838,6 +838,25 @@
     body.printing-dash .dash-day-card .count { font-size: 0.95rem; }
     body.printing-dash .dash-days { gap: 5px; }
   }
+  /* 당겨서 새로고침 */
+  #ptr-indicator {
+    position: fixed;
+    top: -50px;
+    left: 0;
+    right: 0;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--surface);
+    z-index: 200;
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.2s;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -1636,6 +1655,52 @@ window.exportPDF = function(which) {
 };
 
 loadAllTeams();
+
+// 당겨서 새로고침 (pull-to-refresh)
+(function() {
+  let startY = 0;
+  let pulling = false;
+  const indicator = document.createElement('div');
+  indicator.id = 'ptr-indicator';
+  indicator.textContent = '↓ 당겨서 새로고침';
+  document.body.appendChild(indicator);
+
+  window.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    const diff = e.touches[0].clientY - startY;
+    if (diff > 0 && window.scrollY === 0) {
+      const dist = Math.min(diff, 90);
+      indicator.style.transform = `translateY(${dist}px)`;
+      indicator.style.opacity = Math.min(dist / 70, 1);
+      if (dist >= 70) indicator.textContent = '↻ 놓으면 새로고침';
+      else indicator.textContent = '↓ 당겨서 새로고침';
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    if (!pulling) return;
+    pulling = false;
+    const diff = (e.changedTouches[0].clientY - startY);
+    if (diff >= 70 && window.scrollY === 0) {
+      indicator.textContent = '↻ 새로고침 중...';
+      indicator.style.transform = 'translateY(70px)';
+      loadAllTeams().then(() => {
+        indicator.style.transform = 'translateY(0)';
+        indicator.style.opacity = '0';
+      });
+    } else {
+      indicator.style.transform = 'translateY(0)';
+      indicator.style.opacity = '0';
+    }
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
