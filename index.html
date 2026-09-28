@@ -58,7 +58,10 @@
     display: flex;
     gap: 4px;
     overflow-x: auto;
+    overflow-y: hidden;
     scrollbar-width: none;
+    flex-wrap: nowrap;
+    align-items: flex-end;
   }
   .team-tabs::-webkit-scrollbar { display: none; }
 
@@ -74,9 +77,10 @@
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s;
     position: relative;
     bottom: -1px;
+    white-space: nowrap;
   }
   .team-tab:hover { background: var(--accent-light); color: var(--accent); }
   .team-tab.active {
