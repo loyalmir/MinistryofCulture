@@ -166,6 +166,9 @@
     color: var(--text-sub);
     border-bottom: 1.5px solid var(--border);
     text-align: center;
+    position: sticky;
+    background: var(--surface);
+    z-index: 4;
   }
   thead th.name-col {
     text-align: left;
@@ -176,9 +179,11 @@
     z-index: 3;
     background: var(--surface);
   }
-  thead tr.day-head th { font-size: 0.72rem; padding-bottom: 2px; }
-  thead tr.sub-head th { font-size: 0.62rem; padding-top: 2px; font-weight: 500; color: var(--text-sub); }
+  thead tr.day-head th { font-size: 0.72rem; padding-bottom: 2px; top: 104px; z-index: 5; }
+  thead tr.sub-head th { font-size: 0.62rem; padding-top: 2px; font-weight: 500; color: var(--text-sub); top: 131px; z-index: 4; }
   thead tr.sub-head th.sub-meal { color: var(--meal); }
+  /* 이름 헤더는 좌우+상하 모두 고정 (교차점) */
+  thead th.name-col { z-index: 6; }
 
   /* 요일 그룹 사이 구분선 */
   .day-group-start { border-left: 2px solid var(--divider); }
@@ -305,7 +310,15 @@
   .intro-add-btn:hover { background: var(--fruit-light); }
 
   .intro-input-row td { padding: 6px 8px 6px 20px; background: #f2f9ee; }
-  .intro-input-wrap { display: flex; gap: 6px; align-items: center; }
+  .intro-input-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    position: sticky;
+    left: 8px;
+    width: calc(100vw - 48px);
+    max-width: 460px;
+  }
   .intro-input-wrap input {
     flex: 1;
     padding: 5px 8px;
@@ -1691,6 +1704,11 @@ loadAllTeams();
 
   document.addEventListener('touchstart', (e) => {
     if (refreshing) return;
+    // 표(가로 스크롤 영역)나 입력창 안에서 시작하면 새로고침 무시
+    if (e.target.closest('.table-scroll, input, button, .team-tabs')) {
+      pulling = false;
+      return;
+    }
     if (atTop() && e.touches.length === 1) {
       startY = e.touches[0].clientY;
       pulling = true;
