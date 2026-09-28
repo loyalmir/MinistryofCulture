@@ -167,7 +167,15 @@
     border-bottom: 1.5px solid var(--border);
     text-align: center;
   }
-  thead th.name-col { text-align: left; padding-left: 12px; width: 78px; }
+  thead th.name-col {
+    text-align: left;
+    padding-left: 12px;
+    width: 78px;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--surface);
+  }
   thead tr.day-head th { font-size: 0.72rem; padding-bottom: 2px; }
   thead tr.sub-head th { font-size: 0.62rem; padding-top: 2px; font-weight: 500; color: var(--text-sub); }
   thead tr.sub-head th.sub-meal { color: var(--meal); }
@@ -189,12 +197,19 @@
     padding-left: 12px;
     font-weight: 500;
     white-space: nowrap;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--surface);
+    box-shadow: 2px 0 4px rgba(0,0,0,0.04);
   }
+  tbody tr:hover td.name-cell { background: #fdf9f0; }
   tr.intro-row td.name-cell {
     color: var(--fruit);
     font-size: 0.76rem;
     padding-left: 20px;
     font-weight: 400;
+    background: var(--surface);
   }
   .edit-name-btn {
     border: none;
