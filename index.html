@@ -166,9 +166,6 @@
     color: var(--text-sub);
     border-bottom: 1.5px solid var(--border);
     text-align: center;
-    position: sticky;
-    background: var(--surface);
-    z-index: 4;
   }
   thead th.name-col {
     text-align: left;
@@ -179,11 +176,9 @@
     z-index: 3;
     background: var(--surface);
   }
-  thead tr.day-head th { font-size: 0.72rem; padding-bottom: 2px; top: 104px; z-index: 5; }
-  thead tr.sub-head th { font-size: 0.62rem; padding-top: 2px; font-weight: 500; color: var(--text-sub); top: 131px; z-index: 4; }
+  thead tr.day-head th { font-size: 0.72rem; padding-bottom: 2px; }
+  thead tr.sub-head th { font-size: 0.62rem; padding-top: 2px; font-weight: 500; color: var(--text-sub); }
   thead tr.sub-head th.sub-meal { color: var(--meal); }
-  /* 이름 헤더는 좌우+상하 모두 고정 (교차점) */
-  thead th.name-col { z-index: 6; }
 
   /* 요일 그룹 사이 구분선 */
   .day-group-start { border-left: 2px solid var(--divider); }
