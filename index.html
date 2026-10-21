@@ -1021,6 +1021,9 @@ import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/1
 const app = initializeApp({ databaseURL: "https://k-hary-default-rtdb.firebaseio.com/" });
 const db = getDatabase(app);
 const DAYS = ['월','화','수','목','금'];
+  // 🔐 초기화 비밀번호 설정
+// 원하는 비밀번호로 수정하세요.
+const RESET_PASSWORD = "loyalmir";
 
 let currentTeam = 0;
 let allData = {};
@@ -1648,27 +1651,50 @@ document.getElementById('maleInput').addEventListener('keydown', e => { if(e.key
 document.getElementById('femaleInput').addEventListener('keydown', e => { if(e.key==='Enter') window.addPerson('female'); });
 
 // 초기화: 모든 체크 해제 + 신규 삭제 (기존 멤버는 유지)
+ // 초기화: 비밀번호 확인 후 모든 체크 해제 + 신규 삭제
 window.resetAll = function() {
-  if (!confirm('초기화 하시겠습니까?\n\n• 모든 참석·식수 체크가 해제됩니다.\n• 신규 전도 대상자가 모두 삭제됩니다.\n• 기존 형제·자매 명단은 유지됩니다.')) return;
+  const password = prompt('🔐 초기화 비밀번호를 입력하세요.');
 
-  [1,2,3,4].forEach(t => {
+  if (password === null) return;
+
+  if (password !== RESET_PASSWORD) {
+    alert('❌ 비밀번호가 올바르지 않습니다.');
+    return;
+  }
+
+  if (!confirm(
+    '초기화 하시겠습니까?\n\n' +
+    '• 모든 참석·식수 체크가 해제됩니다.\n' +
+    '• 신규 전도 대상자가 모두 삭제됩니다.\n' +
+    '• 기존 형제·자매 명단은 유지됩니다.'
+  )) return;
+
+  [1, 2, 3, 4].forEach(t => {
     const d = allData[t];
     if (!d) return;
-    ['male','female'].forEach(g => {
+
+    ['male', 'female'].forEach(g => {
       if (!d[g]) return;
-      // 신규(intro) 제거, 기존 멤버만 남기고 체크 해제
+
       d[g] = d[g].filter(p => !p.intro);
+
       d[g].forEach(p => {
-        p.attend = [false,false,false,false,false];
-        p.meal = [false,false,false,false,false];
-        if (p.prevAttend) p.prevAttend = [0,0,0,0,0];
+        p.attend = [false, false, false, false, false];
+        p.meal = [false, false, false, false, false];
+
+        if (p.prevAttend) {
+          p.prevAttend = [0, 0, 0, 0, 0];
+        }
       });
     });
+
     saveTeam(t);
   });
 
   render();
+  alert('✅ 초기화가 완료되었습니다.');
 };
+
 
 // PDF 내보내기 (브라우저 인쇄 → A4)
 window.exportPDF = function(which) {
