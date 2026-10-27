@@ -896,6 +896,21 @@
   }
   .pdf-btn:hover { background: #a85f25; }
 
+  /* 엑셀 버튼 */
+  .excel-btn {
+    background: #1d7044;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .excel-btn:hover { background: #155533; }
+
   /* 초기화 버튼 */
   .reset-btn {
     background: #e05050;
@@ -1129,8 +1144,12 @@
 
   <!-- 전도현황 (전도자/대상자/확답/관계/비고) -->
   <div id="statusContent">
-    <div class="prayer-header">📋 전도 현황표
-      <button class="pdf-btn" onclick="exportPDF('status')">📄 PDF</button>
+    <div class="prayer-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>📋 전도 현황표</span>
+      <span style="display:flex;gap:6px;">
+        <button class="excel-btn" onclick="exportStatusExcel()">📊 엑셀</button>
+        <button class="pdf-btn" onclick="exportPDF('status')">📄 PDF</button>
+      </span>
     </div>
     <div id="statusWrap"></div>
   </div>
@@ -1443,6 +1462,47 @@ function editStatusCell(cell) {
   cell.appendChild(inp);
   setTimeout(() => { inp.focus(); inp.select(); }, 30);
 }
+
+// 전도 현황표 엑셀(CSV) 내보내기
+window.exportStatusExcel = function() {
+  // 전도자별 묶기
+  const rows = [['No','전도자','대상자','확답','관계','비고']];
+  let no = 0;
+  [1,2,3,4].forEach(t => {
+    const d = allData[t] || { male:[], female:[] };
+    ['male','female'].forEach(g => {
+      let host = '';
+      (d[g]||[]).forEach(p => {
+        if (!p.intro) { host = p.name; }
+        else {
+          no++;
+          rows.push([no, host, p.name, p.confirm||'', p.relation||'', p.note||'']);
+        }
+      });
+    });
+  });
+
+  if (no === 0) { alert('아직 전도 대상자가 없어요.'); return; }
+
+  // CSV 문자열 (셀 안에 쉼표/따옴표 있으면 감싸기)
+  const esc = (v) => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+  // BOM 붙여서 엑셀 한글 안 깨지게
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const today = new Date();
+  const fname = `전도현황_${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}.csv`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+};
 
 function renderTeam5() {
   const wrap = document.getElementById('team5Wrap');
