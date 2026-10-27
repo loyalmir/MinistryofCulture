@@ -782,12 +782,20 @@
   .dash-day-card.fruit { background: var(--fruit-light); }
   .dash-day-card .day { font-size: 0.7rem; color: var(--text-sub); margin-bottom: 3px; }
   .dash-day-card .count {
-    font-size: clamp(0.85rem, 4.2vw, 1.4rem);
+    font-size: clamp(0.8rem, 4.2vw, 1.4rem);
     font-weight: 700;
     color: var(--accent);
     line-height: 1;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
   }
+  /* 참석/실참석 2숫자 카드는 더 작게 (박스 안에 가둠) */
+  .dash-day-card.two-num .count {
+    font-size: clamp(0.62rem, 3.1vw, 1.1rem);
+    letter-spacing: -0.02em;
+  }
+  .dash-day-card.two-num .count .dc-slash { margin: 0; font-size: 0.8em; }
   .dash-day-card.meal .count { color: var(--meal); }
   .dash-day-card.fruit .count { color: var(--fruit); }
   .dash-day-card .count .dc-slash { color: var(--text-sub); font-weight: 400; font-size: 0.85em; margin: 0 1px; }
@@ -1443,7 +1451,7 @@ function renderDashboard() {
     </div>
     <h3 style="margin-top:18px;">🌱 신규 전도 대상자 참석 현황 <span class="h3-hint">참석<span class="dc-slash">/</span><span class="dc-real">실참석</span></span></h3>
     <div class="dash-days">
-      ${DAYS.map((day,i)=>`<div class="dash-day-card fruit"><div class="day">${day}</div><div class="count">${fruitAttendCounts[i]}${realTag(fruitRealCounts[i])}</div></div>`).join('')}
+      ${DAYS.map((day,i)=>`<div class="dash-day-card fruit two-num"><div class="day">${day}</div><div class="count">${fruitAttendCounts[i]}${realTag(fruitRealCounts[i])}</div></div>`).join('')}
     </div>
     <h3 style="margin-top:18px;">🍱 전체 식사 현황</h3>
     <div class="dash-days">
@@ -1859,7 +1867,24 @@ window.resetAll = function() {
 
 // PDF 내보내기 (브라우저 인쇄 → A4)
 window.__printing = false;
+
+// 홈 화면 앱(standalone) 여부 — iOS는 여기서 window.print()가 막힘
+function isStandalone() {
+  return window.navigator.standalone === true
+    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
 window.exportPDF = function(which) {
+  // 홈 화면 앱이면 인쇄 불가 → 사파리로 열도록 안내
+  if (isStandalone()) {
+    const go = confirm('홈 화면 앱에서는 PDF 저장이 막혀 있어요.\n사파리로 열어서 PDF를 저장할까요?\n\n(열린 사파리에서 다시 PDF 버튼을 눌러주세요)');
+    if (go) {
+      // 사파리로 현재 페이지 열기
+      window.open(location.href.split('?')[0] + '?t=' + Date.now(), '_blank');
+    }
+    return;
+  }
+
   window.__printing = true;
   document.body.classList.add('printing-' + which);
 
