@@ -225,10 +225,25 @@
   .edit-name-btn:hover { opacity: 1; background: var(--accent-light); }
 
   /* 꾹 눌러서 순서 이동 */
-  .name-cell { -webkit-touch-callout: none; }
-  tr.drag-placeholder { opacity: 0.4; background: var(--accent-light) !important; }
+  .name-cell { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  tr.drag-placeholder { opacity: 0.35; }
   tr.drag-placeholder td.name-cell { background: var(--accent-light) !important; }
   tr.drag-over-line td { border-top: 3px solid var(--accent) !important; }
+  .drag-ghost {
+    position: fixed;
+    z-index: 9999;
+    transform: translate(10px, -50%);
+    background: var(--accent);
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0.95;
+  }
 
   /* 참석 체크 (주황) */
   .check-btn {
@@ -1419,47 +1434,28 @@ function renderDashboard() {
   totalCard.after(mealSummary);
 }
 
-// 꾹 눌러서 순서 이동
+// 꾹 눌러서 순서 이동 (손가락 따라오는 이름표 + 가장자리 자동 스크롤)
 window.__dragging = false;
 function attachLongPressDrag(nameTd, tr, group, startIdx) {
   let pressTimer = null;
   let dragging = false;
-  let startY = 0;
-  let placeholder = null;
-  let floatRow = null;
+  let startY = 0, startX = 0;
+  let ghost = null;
+  let autoScrollTimer = null;
 
-  function cleanup() {
-    clearTimeout(pressTimer);
-    if (floatRow) floatRow.remove();
-    if (placeholder) placeholder.classList.remove('drag-placeholder');
-    document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
-    dragging = false;
-    window.__dragging = false;
-    floatRow = null; placeholder = null;
+  function makeGhost(label, x, y) {
+    ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.textContent = label;
+    document.body.appendChild(ghost);
+    moveGhost(x, y);
+  }
+  function moveGhost(x, y) {
+    if (ghost) { ghost.style.left = x + 'px'; ghost.style.top = y + 'px'; }
   }
 
-  nameTd.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    startY = e.touches[0].clientY;
-    pressTimer = setTimeout(() => {
-      // long-press 발동 → 드래그 시작
-      dragging = true;
-      window.__dragging = true;
-      if (navigator.vibrate) navigator.vibrate(30);
-      tr.classList.add('drag-placeholder');
-      placeholder = tr;
-    }, 450);
-  }, { passive: true });
-
-  nameTd.addEventListener('touchmove', (e) => {
-    if (!dragging) {
-      // 아직 드래그 전인데 움직이면 long-press 취소
-      if (Math.abs(e.touches[0].clientY - startY) > 10) clearTimeout(pressTimer);
-      return;
-    }
-    e.preventDefault();
-    const y = e.touches[0].clientY;
-    // 같은 tbody 안의 일반 행들 중 가장 가까운 위치 찾기
+  // 현재 포인터 y에 가장 가까운 드롭 위치 표시
+  function updateTarget(y) {
     const tbody = tr.parentElement;
     const rows = [...tbody.querySelectorAll('tr')].filter(r => r.dataset.idx !== undefined && r !== tr);
     document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
@@ -1469,71 +1465,108 @@ function attachLongPressDrag(nameTd, tr, group, startIdx) {
       if (y < rect.top + rect.height / 2) { target = r; break; }
     }
     if (target) target.classList.add('drag-over-line');
-    tr.__dropTarget = target; // null이면 맨 끝
-  }, { passive: false });
+    tr.__dropTarget = target;
+  }
 
-  nameTd.addEventListener('touchend', () => {
+  // 화면 위/아래 가장자리에서 자동 스크롤
+  function handleAutoScroll(y) {
+    const EDGE = 90, SPEED = 12;
+    let dir = 0;
+    if (y < EDGE) dir = -1;
+    else if (y > window.innerHeight - EDGE) dir = 1;
+    if (dir !== 0 && !autoScrollTimer) {
+      autoScrollTimer = setInterval(() => {
+        window.scrollBy(0, dir * SPEED);
+        updateTarget(lastY);
+      }, 16);
+    } else if (dir === 0 && autoScrollTimer) {
+      clearInterval(autoScrollTimer); autoScrollTimer = null;
+    }
+  }
+
+  let lastY = 0;
+
+  function startDrag(x, y, label) {
+    dragging = true;
+    window.__dragging = true;
+    if (navigator.vibrate) navigator.vibrate(30);
+    tr.classList.add('drag-placeholder');
+    makeGhost(label, x, y);
+    updateTarget(y);
+  }
+
+  function endDrag() {
     clearTimeout(pressTimer);
-    if (!dragging) return;
+    if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+    if (!dragging) { cleanupVisual(); return; }
     const target = tr.__dropTarget;
     const list = getData()[group];
     const from = startIdx;
-    let to;
-    if (target) {
-      to = parseInt(target.dataset.idx, 10);
-    } else {
-      to = list.length; // 맨 끝
-    }
-    cleanup();
-    // 이동 실행
+    let to = target ? parseInt(target.dataset.idx, 10) : list.length;
+    cleanupVisual();
     const [moved] = list.splice(from, 1);
-    if (to > from) to -= 1; // 앞 요소 제거로 인덱스 보정
+    if (to > from) to -= 1;
     list.splice(to, 0, moved);
     saveTeam(currentTeam);
     render();
-  });
+  }
 
-  nameTd.addEventListener('touchcancel', cleanup);
+  function cleanupVisual() {
+    clearTimeout(pressTimer);
+    if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+    if (ghost) { ghost.remove(); ghost = null; }
+    tr.classList.remove('drag-placeholder');
+    document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
+    dragging = false;
+    window.__dragging = false;
+  }
 
-  // 데스크탑 마우스 대응 (꾹 누르기)
+  const label = tr.querySelector('.name-cell span')?.textContent || '';
+
+  // ---- 터치 ----
+  nameTd.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    lastY = startY;
+    pressTimer = setTimeout(() => startDrag(startX, startY, label), 400);
+  }, { passive: true });
+
+  nameTd.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (!dragging) {
+      if (Math.abs(t.clientY - startY) > 10 || Math.abs(t.clientX - startX) > 10) clearTimeout(pressTimer);
+      return;
+    }
+    e.preventDefault();
+    lastY = t.clientY;
+    moveGhost(t.clientX, t.clientY);
+    updateTarget(t.clientY);
+    handleAutoScroll(t.clientY);
+  }, { passive: false });
+
+  nameTd.addEventListener('touchend', endDrag);
+  nameTd.addEventListener('touchcancel', cleanupVisual);
+
+  // ---- 마우스 (데스크탑) ----
   nameTd.addEventListener('mousedown', (e) => {
     if (e.target.closest('.edit-name-btn')) return;
-    startY = e.clientY;
-    pressTimer = setTimeout(() => {
-      dragging = true; window.__dragging = true;
-      tr.classList.add('drag-placeholder'); placeholder = tr;
-    }, 450);
+    startY = e.clientY; startX = e.clientX; lastY = startY;
+    pressTimer = setTimeout(() => startDrag(startX, startY, label), 400);
     const onMove = (ev) => {
       if (!dragging) {
-        if (Math.abs(ev.clientY - startY) > 10) clearTimeout(pressTimer);
+        if (Math.abs(ev.clientY - startY) > 10 || Math.abs(ev.clientX - startX) > 10) clearTimeout(pressTimer);
         return;
       }
-      const tbody = tr.parentElement;
-      const rows = [...tbody.querySelectorAll('tr')].filter(r => r.dataset.idx !== undefined && r !== tr);
-      document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
-      let target = null;
-      for (const r of rows) {
-        const rect = r.getBoundingClientRect();
-        if (ev.clientY < rect.top + rect.height / 2) { target = r; break; }
-      }
-      if (target) target.classList.add('drag-over-line');
-      tr.__dropTarget = target;
+      lastY = ev.clientY;
+      moveGhost(ev.clientX, ev.clientY);
+      updateTarget(ev.clientY);
+      handleAutoScroll(ev.clientY);
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      clearTimeout(pressTimer);
-      if (!dragging) return;
-      const target = tr.__dropTarget;
-      const list = getData()[group];
-      const from = startIdx;
-      let to = target ? parseInt(target.dataset.idx, 10) : list.length;
-      cleanup();
-      const [moved] = list.splice(from, 1);
-      if (to > from) to -= 1;
-      list.splice(to, 0, moved);
-      saveTeam(currentTeam);
-      render();
+      endDrag();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
