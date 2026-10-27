@@ -224,6 +224,12 @@
   }
   .edit-name-btn:hover { opacity: 1; background: var(--accent-light); }
 
+  /* 꾹 눌러서 순서 이동 */
+  .name-cell { -webkit-touch-callout: none; }
+  tr.drag-placeholder { opacity: 0.4; background: var(--accent-light) !important; }
+  tr.drag-placeholder td.name-cell { background: var(--accent-light) !important; }
+  tr.drag-over-line td { border-top: 3px solid var(--accent) !important; }
+
   /* 참석 체크 (주황) */
   .check-btn {
     width: 28px;
@@ -922,7 +928,7 @@
   <!-- 전체 대시보드 -->
   <div id="dashboardContent">
     <div class="prayer-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-<button class="reset-btn" onclick="resetAll()" style="display:none;">🔄 초기화</button>
+      <button class="reset-btn" onclick="resetAll()">🔄 초기화</button>
       <button class="pdf-btn" onclick="exportPDF('dash')">📄 PDF</button>
     </div>
     <div class="dash-team-grid" id="dashTeamGrid"></div>
@@ -1021,9 +1027,6 @@ import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/1
 const app = initializeApp({ databaseURL: "https://k-hary-default-rtdb.firebaseio.com/" });
 const db = getDatabase(app);
 const DAYS = ['월','화','수','목','금'];
-  // 🔐 초기화 비밀번호 설정
-// 원하는 비밀번호로 수정하세요.
-const RESET_PASSWORD = "loyalmir";
 
 let currentTeam = 0;
 let allData = {};
@@ -1416,6 +1419,127 @@ function renderDashboard() {
   totalCard.after(mealSummary);
 }
 
+// 꾹 눌러서 순서 이동
+window.__dragging = false;
+function attachLongPressDrag(nameTd, tr, group, startIdx) {
+  let pressTimer = null;
+  let dragging = false;
+  let startY = 0;
+  let placeholder = null;
+  let floatRow = null;
+
+  function cleanup() {
+    clearTimeout(pressTimer);
+    if (floatRow) floatRow.remove();
+    if (placeholder) placeholder.classList.remove('drag-placeholder');
+    document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
+    dragging = false;
+    window.__dragging = false;
+    floatRow = null; placeholder = null;
+  }
+
+  nameTd.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    pressTimer = setTimeout(() => {
+      // long-press 발동 → 드래그 시작
+      dragging = true;
+      window.__dragging = true;
+      if (navigator.vibrate) navigator.vibrate(30);
+      tr.classList.add('drag-placeholder');
+      placeholder = tr;
+    }, 450);
+  }, { passive: true });
+
+  nameTd.addEventListener('touchmove', (e) => {
+    if (!dragging) {
+      // 아직 드래그 전인데 움직이면 long-press 취소
+      if (Math.abs(e.touches[0].clientY - startY) > 10) clearTimeout(pressTimer);
+      return;
+    }
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    // 같은 tbody 안의 일반 행들 중 가장 가까운 위치 찾기
+    const tbody = tr.parentElement;
+    const rows = [...tbody.querySelectorAll('tr')].filter(r => r.dataset.idx !== undefined && r !== tr);
+    document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
+    let target = null;
+    for (const r of rows) {
+      const rect = r.getBoundingClientRect();
+      if (y < rect.top + rect.height / 2) { target = r; break; }
+    }
+    if (target) target.classList.add('drag-over-line');
+    tr.__dropTarget = target; // null이면 맨 끝
+  }, { passive: false });
+
+  nameTd.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+    if (!dragging) return;
+    const target = tr.__dropTarget;
+    const list = getData()[group];
+    const from = startIdx;
+    let to;
+    if (target) {
+      to = parseInt(target.dataset.idx, 10);
+    } else {
+      to = list.length; // 맨 끝
+    }
+    cleanup();
+    // 이동 실행
+    const [moved] = list.splice(from, 1);
+    if (to > from) to -= 1; // 앞 요소 제거로 인덱스 보정
+    list.splice(to, 0, moved);
+    saveTeam(currentTeam);
+    render();
+  });
+
+  nameTd.addEventListener('touchcancel', cleanup);
+
+  // 데스크탑 마우스 대응 (꾹 누르기)
+  nameTd.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.edit-name-btn')) return;
+    startY = e.clientY;
+    pressTimer = setTimeout(() => {
+      dragging = true; window.__dragging = true;
+      tr.classList.add('drag-placeholder'); placeholder = tr;
+    }, 450);
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - startY) > 10) clearTimeout(pressTimer);
+        return;
+      }
+      const tbody = tr.parentElement;
+      const rows = [...tbody.querySelectorAll('tr')].filter(r => r.dataset.idx !== undefined && r !== tr);
+      document.querySelectorAll('.drag-over-line').forEach(el => el.classList.remove('drag-over-line'));
+      let target = null;
+      for (const r of rows) {
+        const rect = r.getBoundingClientRect();
+        if (ev.clientY < rect.top + rect.height / 2) { target = r; break; }
+      }
+      if (target) target.classList.add('drag-over-line');
+      tr.__dropTarget = target;
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      clearTimeout(pressTimer);
+      if (!dragging) return;
+      const target = tr.__dropTarget;
+      const list = getData()[group];
+      const from = startIdx;
+      let to = target ? parseInt(target.dataset.idx, 10) : list.length;
+      cleanup();
+      const [moved] = list.splice(from, 1);
+      if (to > from) to -= 1;
+      list.splice(to, 0, moved);
+      saveTeam(currentTeam);
+      render();
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
 function renderGroup(group, tbodyId) {
   const tbody = document.getElementById(tbodyId);
   tbody.innerHTML = '';
@@ -1427,6 +1551,8 @@ function renderGroup(group, tbodyId) {
 
     const nameTd = document.createElement('td');
     nameTd.className = 'name-cell';
+    tr.dataset.group = group;
+    tr.dataset.idx = idx;
 
     const nameWrap = document.createElement('div');
     nameWrap.style.cssText = 'display:flex;align-items:center;gap:5px;';
@@ -1446,6 +1572,9 @@ function renderGroup(group, tbodyId) {
 
     nameTd.appendChild(nameWrap);
     tr.appendChild(nameTd);
+
+    // 꾹 눌러서 순서 이동 (long-press 드래그)
+    attachLongPressDrag(nameTd, tr, group, idx);
 
     DAYS.forEach((_, di) => {
       // 참석
@@ -1651,58 +1780,50 @@ document.getElementById('maleInput').addEventListener('keydown', e => { if(e.key
 document.getElementById('femaleInput').addEventListener('keydown', e => { if(e.key==='Enter') window.addPerson('female'); });
 
 // 초기화: 모든 체크 해제 + 신규 삭제 (기존 멤버는 유지)
- // 초기화: 비밀번호 확인 후 모든 체크 해제 + 신규 삭제
 window.resetAll = function() {
-  const password = prompt('🔐 초기화 비밀번호를 입력하세요.');
+  if (!confirm('초기화 하시겠습니까?\n\n• 모든 참석·식수 체크가 해제됩니다.\n• 신규 전도 대상자가 모두 삭제됩니다.\n• 기존 형제·자매 명단은 유지됩니다.')) return;
 
-  if (password === null) return;
-
-  if (password !== RESET_PASSWORD) {
-    alert('❌ 비밀번호가 올바르지 않습니다.');
-    return;
-  }
-
-  if (!confirm(
-    '초기화 하시겠습니까?\n\n' +
-    '• 모든 참석·식수 체크가 해제됩니다.\n' +
-    '• 신규 전도 대상자가 모두 삭제됩니다.\n' +
-    '• 기존 형제·자매 명단은 유지됩니다.'
-  )) return;
-
-  [1, 2, 3, 4].forEach(t => {
+  [1,2,3,4].forEach(t => {
     const d = allData[t];
     if (!d) return;
-
-    ['male', 'female'].forEach(g => {
+    ['male','female'].forEach(g => {
       if (!d[g]) return;
-
+      // 신규(intro) 제거, 기존 멤버만 남기고 체크 해제
       d[g] = d[g].filter(p => !p.intro);
-
       d[g].forEach(p => {
-        p.attend = [false, false, false, false, false];
-        p.meal = [false, false, false, false, false];
-
-        if (p.prevAttend) {
-          p.prevAttend = [0, 0, 0, 0, 0];
-        }
+        p.attend = [false,false,false,false,false];
+        p.meal = [false,false,false,false,false];
+        if (p.prevAttend) p.prevAttend = [0,0,0,0,0];
       });
     });
-
     saveTeam(t);
   });
 
   render();
-  alert('✅ 초기화가 완료되었습니다.');
 };
 
-
 // PDF 내보내기 (브라우저 인쇄 → A4)
+window.__printing = false;
 window.exportPDF = function(which) {
+  window.__printing = true;
   document.body.classList.add('printing-' + which);
+
+  const cleanup = () => {
+    document.body.classList.remove('printing-' + which);
+    window.__printing = false;
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+
+  // 레이아웃 반영 후 인쇄 (iOS Safari 대응)
   setTimeout(() => {
-    window.print();
-    setTimeout(() => document.body.classList.remove('printing-' + which), 500);
-  }, 100);
+    try {
+      window.print();
+    } catch (e) {
+      alert('인쇄 창을 열 수 없어요. 사파리 하단의 공유 버튼 → "인쇄" 를 눌러주세요.');
+    }
+    setTimeout(cleanup, 1500);
+  }, 250);
 };
 
 loadAllTeams();
@@ -1724,7 +1845,7 @@ loadAllTeams();
   }
 
   document.addEventListener('touchstart', (e) => {
-    if (refreshing) return;
+    if (refreshing || window.__printing || window.__dragging) return;
     // 표(가로 스크롤 영역)나 입력창 안에서 시작하면 새로고침 무시
     if (e.target.closest('.table-scroll, input, button, .team-tabs')) {
       pulling = false;
