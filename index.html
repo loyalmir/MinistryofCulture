@@ -418,6 +418,72 @@
   /* 기도 - 신규 참석 명단 */
   #attendContent { display: none; }
   #team5Content { display: none; }
+  #statusContent { display: none; }
+
+  /* 전도 현황표 */
+  .status-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .status-table thead th {
+    background: var(--male-header);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 9px 4px;
+    text-align: center;
+    border-bottom: 1.5px solid var(--border);
+    border-right: 1px solid rgba(0,0,0,0.06);
+  }
+  .status-table td {
+    padding: 7px 5px;
+    text-align: center;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #ede6d6;
+    border-right: 1px solid #ede6d6;
+  }
+  .status-table td:last-child { border-right: none; }
+  .status-table .st-no { color: var(--text-sub); font-size: 0.72rem; width: 32px; }
+  .status-table .st-host { font-weight: 700; color: var(--text); background: #faf6ee; white-space: nowrap; }
+  .status-table .st-name { font-weight: 700; color: var(--fruit); white-space: nowrap; }
+  .status-table .st-field { color: var(--text); min-width: 54px; }
+  .status-table .st-edit { cursor: pointer; }
+  .status-table .st-edit:empty::after {
+    content: '+';
+    color: var(--border);
+    font-weight: 700;
+  }
+  .status-table .st-edit:active { background: var(--accent-light); }
+  .st-input {
+    width: 100%;
+    min-width: 48px;
+    padding: 3px 4px;
+    border: 1.5px solid var(--accent);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    text-align: center;
+    outline: none;
+    background: white;
+    color: var(--text);
+  }
+  .status-table tfoot td {
+    background: var(--fruit-light);
+    font-weight: 700;
+    color: var(--text);
+    padding: 9px 4px;
+    text-align: center;
+  }
+  .status-hint {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    margin-top: 10px;
+  }
 
   /* 5팀 테이블 */
   .team5-table {
@@ -930,17 +996,27 @@
     /* 인쇄 방해하는 고정 요소 전부 숨김 */
     .header, .pdf-btn, .reset-btn, #ptr-indicator, .drag-ghost { display: none !important; }
     .content { padding: 0 !important; margin: 0 !important; }
-    #attendContent, #dashboardContent, #team5Content, #mainContent { display: none !important; }
+    #attendContent, #dashboardContent, #team5Content, #statusContent, #mainContent { display: none !important; }
     body.printing-attend #attendContent { display: block !important; }
     body.printing-dash #dashboardContent { display: block !important; }
     body.printing-team5 #team5Content { display: block !important; }
+    body.printing-status #statusContent { display: block !important; }
     .prayer-day-btn { border: 1px solid #ccc !important; }
     .prayer-day-btn.active { background: var(--accent) !important; color: white !important; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .prayer-header { text-align: center; font-size: 1rem; margin-bottom: 8px; }
+    .status-hint { display: none !important; }
+    /* 전도현황 인쇄 압축 */
+    body.printing-status .status-table td,
+    body.printing-status .status-table thead th {
+      padding: 0.5px 4px !important;
+      font-size: 0.6rem !important;
+      line-height: 1.3 !important;
+    }
+    body.printing-status .st-edit:empty::after { content: '' !important; }
     /* 인쇄 시 overflow·scroll 영역 전부 펼침 (내용 잘림 방지) */
-    .prayer-table, .team5-table, .table-section, .table-scroll,
-    #attendContent, #team5Content, #dashboardContent {
+    .prayer-table, .team5-table, .status-table, .table-section, .table-scroll,
+    #attendContent, #team5Content, #statusContent, #dashboardContent {
       overflow: visible !important;
       max-height: none !important;
     }
@@ -1027,6 +1103,7 @@
     <button class="team-tab" onclick="switchTeam(3)">3팀</button>
     <button class="team-tab" onclick="switchTeam(4)">4팀</button>
     <button class="team-tab" onclick="switchTeam(-2)">✅ 참석</button>
+    <button class="team-tab" onclick="switchTeam(-3)">📋 전도현황</button>
   </div>
 </div>
 
@@ -1048,6 +1125,14 @@
       <button class="pdf-btn" onclick="exportPDF('team5')">📄 PDF</button>
     </div>
     <div id="team5Wrap"></div>
+  </div>
+
+  <!-- 전도현황 (전도자/대상자/확답/관계/비고) -->
+  <div id="statusContent">
+    <div class="prayer-header">📋 전도 현황표
+      <button class="pdf-btn" onclick="exportPDF('status')">📄 PDF</button>
+    </div>
+    <div id="statusWrap"></div>
   </div>
 
   <!-- 전체 대시보드 -->
@@ -1223,17 +1308,22 @@ function render() {
   updateTabs();
   const attend = document.getElementById('attendContent');
   const team5 = document.getElementById('team5Content');
+  const status = document.getElementById('statusContent');
   const dash = document.getElementById('dashboardContent');
   const main = document.getElementById('mainContent');
 
   attend.style.display = 'none';
   team5.style.display = 'none';
+  status.style.display = 'none';
   dash.style.display = 'none';
   main.style.display = 'none';
 
   if (currentTeam === -2) {
     attend.style.display = 'block';
     renderPrayer();
+  } else if (currentTeam === -3) {
+    status.style.display = 'block';
+    renderStatus();
   } else if (currentTeam === 5) {
     team5.style.display = 'block';
     renderTeam5();
@@ -1249,8 +1339,8 @@ function render() {
 }
 
 function updateTabs() {
-  // 탭 순서: 기도(5), 전체(0), 1~4팀, 참석(-2)
-  const teams = [5, 0, 1, 2, 3, 4, -2];
+  // 탭 순서: 기도(5), 전체(0), 1~4팀, 참석(-2), 전도현황(-3)
+  const teams = [5, 0, 1, 2, 3, 4, -2, -3];
   document.querySelectorAll('.team-tab').forEach((tab, i) => {
     tab.classList.toggle('active', teams[i] === currentTeam);
   });
@@ -1259,6 +1349,101 @@ function updateTabs() {
 let prayerDay = 0; // 현재 선택된 요일 (0=월)
 
 // 5팀: 전도자별 신규 참석 (1~4팀 attend와 연동, 월~금)
+// 전도 현황표 (전도자 / 대상자 / 확답 / 관계 / 비고)
+function renderStatus() {
+  const wrap = document.getElementById('statusWrap');
+
+  // 전도자별로 신규 묶기 (원본 위치 참조)
+  const groups = [];
+  [1,2,3,4].forEach(t => {
+    const d = allData[t] || { male:[], female:[] };
+    ['male','female'].forEach(g => {
+      let host = null;
+      (d[g]||[]).forEach((p, idx) => {
+        if (!p.intro) {
+          host = { host: p.name, members: [] };
+        } else if (host) {
+          host.members.push({ team: t, group: g, idx, name: p.name });
+          if (!groups.includes(host)) groups.push(host);
+        }
+      });
+    });
+  });
+
+  if (!groups.length) {
+    wrap.innerHTML = `<div class="prayer-empty">아직 전도하는 형제·자매가 없어요.<br>1~4팀에서 신규 전도 대상자를 추가하면 여기 자동으로 모여요.</div>`;
+    return;
+  }
+
+  let no = 0;
+  let html = `<table class="status-table">
+    <thead><tr>
+      <th class="st-no">No</th>
+      <th class="st-host">전도자</th>
+      <th class="st-name">대상자</th>
+      <th class="st-field">확답</th>
+      <th class="st-field">관계</th>
+      <th class="st-field">비고</th>
+    </tr></thead><tbody>`;
+
+  groups.forEach(grp => {
+    const span = grp.members.length;
+    grp.members.forEach((m, k) => {
+      no++;
+      const person = allData[m.team][m.group][m.idx];
+      const confirm = person.confirm || '';
+      const relation = person.relation || '';
+      const note = person.note || '';
+      const dataAttr = `data-team="${m.team}" data-group="${m.group}" data-idx="${m.idx}"`;
+      html += '<tr>';
+      html += `<td class="st-no">${no}</td>`;
+      if (k === 0) html += `<td class="st-host" rowspan="${span}">${grp.host}</td>`;
+      html += `<td class="st-name">${m.name}</td>`;
+      html += `<td class="st-field st-edit" ${dataAttr} data-field="confirm">${confirm}</td>`;
+      html += `<td class="st-field st-edit" ${dataAttr} data-field="relation">${relation}</td>`;
+      html += `<td class="st-field st-edit" ${dataAttr} data-field="note">${note}</td>`;
+      html += '</tr>';
+    });
+  });
+  html += `</tbody><tfoot><tr><td colspan="6">총 대상자 ${no}명</td></tr></tfoot></table>`;
+  html += `<div class="status-hint">💡 확답·관계·비고 칸을 눌러서 입력하세요</div>`;
+  wrap.innerHTML = html;
+
+  // 셀 탭 → 입력
+  wrap.querySelectorAll('.st-edit').forEach(cell => {
+    cell.onclick = () => editStatusCell(cell);
+  });
+}
+
+function editStatusCell(cell) {
+  if (cell.querySelector('input')) return;
+  const t = +cell.dataset.team, g = cell.dataset.group, idx = +cell.dataset.idx;
+  const field = cell.dataset.field;
+  const person = allData[t][g][idx];
+  const cur = person[field] || '';
+
+  cell.innerHTML = '';
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.value = cur;
+  inp.className = 'st-input';
+  inp.maxLength = 20;
+
+  const save = () => {
+    person[field] = inp.value.trim();
+    saveTeam(t);
+    renderStatus();
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { inp.blur(); }
+    if (e.key === 'Escape') renderStatus();
+  });
+  inp.addEventListener('blur', save);
+
+  cell.appendChild(inp);
+  setTimeout(() => { inp.focus(); inp.select(); }, 30);
+}
+
 function renderTeam5() {
   const wrap = document.getElementById('team5Wrap');
 
@@ -1967,6 +2152,7 @@ window.exportPDF = function(which) {
   const containerId = {
     attend: 'attendContent',
     team5: 'team5Content',
+    status: 'statusContent',
     dash: 'dashboardContent'
   }[which];
   const target = document.getElementById(containerId);
