@@ -1956,21 +1956,42 @@ window.exportPDF = function(which) {
   window.__printing = true;
   document.body.classList.add('printing-' + which);
 
+  const containerId = {
+    attend: 'attendContent',
+    team5: 'team5Content',
+    dash: 'dashboardContent'
+  }[which];
+  const target = document.getElementById(containerId);
+
   const cleanup = () => {
     document.body.classList.remove('printing-' + which);
     window.__printing = false;
+    if (target) { target.style.transform = ''; target.style.transformOrigin = ''; target.style.width = ''; }
     window.removeEventListener('afterprint', cleanup);
   };
   window.addEventListener('afterprint', cleanup);
 
-  // 레이아웃 반영 후 인쇄 (iOS Safari 대응)
+  // 레이아웃 반영 후: 한 장(A4) 넘으면 자동 축소
   setTimeout(() => {
-    try {
-      window.print();
-    } catch (e) {
-      alert('인쇄 창을 열 수 없어요. 사파리 하단의 공유 버튼 → "인쇄" 를 눌러주세요.');
+    if (target) {
+      // A4 인쇄 가능 높이(96dpi 기준, 여백 8mm 제외) ≈ 1020px
+      const A4_H = 1020;
+      const h = target.scrollHeight;
+      if (h > A4_H) {
+        const scale = Math.max(0.45, A4_H / h);
+        target.style.transformOrigin = 'top left';
+        target.style.transform = `scale(${scale})`;
+        target.style.width = (100 / scale) + '%';
+      }
     }
-    setTimeout(cleanup, 1500);
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (e) {
+        alert('인쇄 창을 열 수 없어요. 사파리 하단의 공유 버튼 → "인쇄" 를 눌러주세요.');
+      }
+      setTimeout(cleanup, 1500);
+    }, 120);
   }, 250);
 };
 
