@@ -1021,14 +1021,18 @@
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .prayer-header { text-align: center; font-size: 1rem; margin-bottom: 8px; }
     .status-hint { display: none !important; }
-    /* 전도현황 인쇄 압축 */
+    /* 전도현황 인쇄 압축 (100%에서 한 장) */
+    body.printing-status .prayer-header { font-size: 0.85rem !important; margin-bottom: 4px !important; }
     body.printing-status .status-table td,
     body.printing-status .status-table thead th {
-      padding: 0.5px 4px !important;
-      font-size: 0.6rem !important;
-      line-height: 1.3 !important;
+      padding: 0px 3px !important;
+      font-size: 0.56rem !important;
+      line-height: 1.25 !important;
     }
+    body.printing-status .status-table .st-no { font-size: 0.5rem !important; }
+    body.printing-status .status-table tfoot td { padding: 1px 3px !important; font-size: 0.58rem !important; }
     body.printing-status .st-edit:empty::after { content: '' !important; }
+    body.printing-status .status-table { border-radius: 0 !important; }
     /* 인쇄 시 overflow·scroll 영역 전부 펼침 (내용 잘림 방지) */
     .prayer-table, .team5-table, .status-table, .table-section, .table-scroll,
     #attendContent, #team5Content, #statusContent, #dashboardContent {
