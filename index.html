@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 캐시 방지: 홈 화면 앱도 항상 최신 버전 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>문화부 집회 주간 식수 인원 파악</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
@@ -835,9 +840,16 @@
   /* 인쇄 (A4 한 장) */
   @media print {
     @page { size: A4; margin: 8mm; }
-    body { background: white; padding: 0; }
-    .header, .pdf-btn, .reset-btn { display: none !important; }
-    .content { padding: 0; }
+    html, body {
+      background: white !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      min-height: 0 !important;
+      height: auto !important;
+    }
+    /* 인쇄 방해하는 고정 요소 전부 숨김 */
+    .header, .pdf-btn, .reset-btn, #ptr-indicator, .drag-ghost { display: none !important; }
+    .content { padding: 0 !important; margin: 0 !important; }
     #attendContent, #dashboardContent, #team5Content, #mainContent { display: none !important; }
     body.printing-attend #attendContent { display: block !important; }
     body.printing-dash #dashboardContent { display: block !important; }
@@ -846,6 +858,16 @@
     .prayer-day-btn.active { background: var(--accent) !important; color: white !important; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .prayer-header { text-align: center; font-size: 1rem; margin-bottom: 8px; }
+    /* 인쇄 시 overflow·scroll 영역 전부 펼침 (내용 잘림 방지) */
+    .prayer-table, .team5-table, .table-section, .table-scroll,
+    #attendContent, #team5Content, #dashboardContent {
+      overflow: visible !important;
+      max-height: none !important;
+    }
+    .table-scroll table, .prayer-table, .team5-table {
+      min-width: 0 !important;
+      width: 100% !important;
+    }
 
     /* 참석 탭: 한 장에 압축 */
     body.printing-attend .prayer-header { font-size: 0.92rem; margin-bottom: 6px; }
@@ -1916,13 +1938,11 @@ loadAllTeams();
       indicator.textContent = '↻ 새로고침 중...';
       indicator.style.transform = 'translateY(110px)';
       indicator.style.opacity = '1';
-      Promise.resolve(loadAllTeams()).then(() => {
-        setTimeout(() => {
-          indicator.style.transform = '';
-          indicator.style.opacity = '0';
-          refreshing = false;
-        }, 300);
-      });
+      // 페이지 전체를 캐시 무시하고 다시 로드 (홈 화면 앱도 최신 버전으로)
+      setTimeout(() => {
+        const url = location.href.split('?')[0] + '?t=' + Date.now();
+        location.replace(url);
+      }, 350);
     } else {
       indicator.style.transform = '';
       indicator.style.opacity = '0';
