@@ -845,6 +845,78 @@
   }
   .reset-btn:hover { background: #c83030; }
 
+  /* 사파리 안내 배너 */
+  #safari-banner {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #safari-banner .sb-box {
+    background: var(--surface);
+    border-radius: 18px;
+    padding: 24px 20px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  #safari-banner .sb-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  #safari-banner .sb-desc {
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  #safari-banner .sb-url {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    word-break: break-all;
+    -webkit-user-select: all;
+    user-select: all;
+  }
+  #safari-banner .sb-copy {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  #safari-banner .sb-close {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    color: var(--text-sub);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
   /* 인쇄 (A4 한 장) */
   @media print {
     @page { size: A4; margin: 8mm; }
@@ -1875,13 +1947,9 @@ function isStandalone() {
 }
 
 window.exportPDF = function(which) {
-  // 홈 화면 앱이면 인쇄 불가 → 사파리로 열도록 안내
+  // 홈 화면 앱이면 인쇄가 막혀 있음 → 사파리로 열라는 배너 표시
   if (isStandalone()) {
-    const go = confirm('홈 화면 앱에서는 PDF 저장이 막혀 있어요.\n사파리로 열어서 PDF를 저장할까요?\n\n(열린 사파리에서 다시 PDF 버튼을 눌러주세요)');
-    if (go) {
-      // 사파리로 현재 페이지 열기
-      window.open(location.href.split('?')[0] + '?t=' + Date.now(), '_blank');
-    }
+    showSafariBanner();
     return;
   }
 
@@ -1905,6 +1973,49 @@ window.exportPDF = function(which) {
     setTimeout(cleanup, 1500);
   }, 250);
 };
+
+// 홈 화면 앱용 안내 배너
+function showSafariBanner() {
+  const existing = document.getElementById('safari-banner');
+  if (existing) existing.remove();
+
+  const url = location.href.split('?')[0];
+  const overlay = document.createElement('div');
+  overlay.id = 'safari-banner';
+  overlay.innerHTML = `
+    <div class="sb-box">
+      <div class="sb-title">📄 PDF는 사파리에서</div>
+      <div class="sb-desc">홈 화면 앱에서는 PDF 저장이 막혀 있어요.<br>아래 주소를 <b>사파리</b>에서 열면 PDF 저장이 돼요.</div>
+      <div class="sb-url" id="sbUrl">${url}</div>
+      <button class="sb-copy" id="sbCopy">📋 주소 복사</button>
+      <button class="sb-close" id="sbClose">닫기</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('sbCopy').onclick = () => {
+    const u = location.href.split('?')[0];
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(u).then(
+        () => { document.getElementById('sbCopy').textContent = '✅ 복사됨!'; },
+        () => { selectUrlText(); }
+      );
+    } else {
+      selectUrlText();
+    }
+  };
+  document.getElementById('sbClose').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+function selectUrlText() {
+  const el = document.getElementById('sbUrl');
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  document.getElementById('sbCopy').textContent = '👆 길게 눌러 복사하세요';
+}
 
 loadAllTeams();
 
